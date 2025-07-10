@@ -1,0 +1,8 @@
+{
+  "mainnet": {
+    "CurveStableSwapNG": {
+      "address": "0x1d08E7adC263CfC70b1BaBe6dC5Bb339c16Eec52",
+      "startBlock": 20169549
+    }
+  }
+}
