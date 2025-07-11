@@ -15,17 +15,12 @@ import {
 } from "../generated/CurveStableSwapNG/CurveStableSwapNG";
 import {
   Transfer,
-  Approval,
   TokenExchange,
   TokenExchangeUnderlying,
   AddLiquidity,
   RemoveLiquidity,
   RemoveLiquidityOne,
   RemoveLiquidityImbalance,
-  RampA,
-  StopRampA,
-  ApplyNewFee,
-  SetNewMATime,
 } from "../generated/schema";
 import {
   getOrInitPool,
@@ -73,20 +68,6 @@ export function handleTransfer(event: TransferEvent): void {
   // versus each LP token probably?
 }
 
-export function handleApproval(event: ApprovalEvent): void {
-  let entity = new Approval(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.owner = event.params.owner;
-  entity.spender = event.params.spender;
-  entity.value = event.params.value;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
 
 function processTokenExchange(
   event: ethereum.Event,
@@ -317,62 +298,4 @@ export function handleRemoveLiquidityImbalance(
   // totalLiquidityUSD
   // TODO: update Position entity
   // TODO: create Transaction entity
-}
-
-export function handleRampA(event: RampAEvent): void {
-  let entity = new RampA(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.old_A = event.params.old_A;
-  entity.new_A = event.params.new_A;
-  entity.initial_time = event.params.initial_time;
-  entity.future_time = event.params.future_time;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleStopRampA(event: StopRampAEvent): void {
-  let entity = new StopRampA(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.A = event.params.A;
-  entity.t = event.params.t;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleApplyNewFee(event: ApplyNewFeeEvent): void {
-  let entity = new ApplyNewFee(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.fee = event.params.fee;
-  entity.offpeg_fee_multiplier = event.params.offpeg_fee_multiplier;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
-}
-
-export function handleSetNewMATime(event: SetNewMATimeEvent): void {
-  let entity = new SetNewMATime(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  );
-  entity.ma_exp_time = event.params.ma_exp_time;
-  entity.D_ma_time = event.params.D_ma_time;
-
-  entity.blockNumber = event.block.number;
-  entity.blockTimestamp = event.block.timestamp;
-  entity.transactionHash = event.transaction.hash;
-
-  entity.save();
 }

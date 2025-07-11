@@ -67,16 +67,6 @@ type Transfer @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type Approval @entity(immutable: true) {
-  id: Bytes!
-  owner: Bytes! # address
-  spender: Bytes! # address
-  value: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
 type TokenExchange @entity(immutable: true) {
   id: Bytes!
   buyer: Bytes! # address
@@ -143,44 +133,6 @@ type RemoveLiquidityImbalance @entity(immutable: true) {
   fees: [BigInt!]! # uint256[]
   invariant: BigInt! # uint256
   token_supply: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type RampA @entity(immutable: true) {
-  id: Bytes!
-  old_A: BigInt! # uint256
-  new_A: BigInt! # uint256
-  initial_time: BigInt! # uint256
-  future_time: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type StopRampA @entity(immutable: true) {
-  id: Bytes!
-  A: BigInt! # uint256
-  t: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type ApplyNewFee @entity(immutable: true) {
-  id: Bytes!
-  fee: BigInt! # uint256
-  offpeg_fee_multiplier: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-}
-
-type SetNewMATime @entity(immutable: true) {
-  id: Bytes!
-  ma_exp_time: BigInt! # uint256
-  D_ma_time: BigInt! # uint256
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!

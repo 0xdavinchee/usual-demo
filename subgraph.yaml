@@ -21,25 +21,18 @@ dataSources:
         - Pool
         - PoolTransaction
         - Transfer
-        - Approval
         - TokenExchange
         - TokenExchangeUnderlying
         - AddLiquidity
         - RemoveLiquidity
         - RemoveLiquidityOne
         - RemoveLiquidityImbalance
-        - RampA
-        - StopRampA
-        - ApplyNewFee
-        - SetNewMATime
       abis:
         - name: CurveStableSwapNG
           file: ./abis/CurveStableSwapNG.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
-        - event: Approval(indexed address,indexed address,uint256)
-          handler: handleApproval
         - event: TokenExchange(indexed address,int128,uint256,int128,uint256)
           handler: handleTokenExchange
         - event: TokenExchangeUnderlying(indexed address,int128,uint256,int128,uint256)
@@ -52,12 +45,4 @@ dataSources:
           handler: handleRemoveLiquidityOne
         - event: RemoveLiquidityImbalance(indexed address,uint256[],uint256[],uint256,uint256)
           handler: handleRemoveLiquidityImbalance
-        - event: RampA(uint256,uint256,uint256,uint256)
-          handler: handleRampA
-        - event: StopRampA(uint256,uint256)
-          handler: handleStopRampA
-        - event: ApplyNewFee(uint256,uint256)
-          handler: handleApplyNewFee
-        - event: SetNewMATime(uint256,uint256)
-          handler: handleSetNewMATime
       file: ./src/curve-stable-swap-ng.ts
