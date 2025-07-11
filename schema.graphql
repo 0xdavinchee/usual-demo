@@ -1,3 +1,62 @@
+# Higher Order Entities
+type User @entity(immutable: false) {
+  id: Bytes! # Wallet address
+  lpTokenBalance: BigDecimal! # Amount of LP tokens held
+  shareOfPool: BigDecimal! # % of LP tokens held
+  # totalUSUALRewards: BigInt! # Lifetime $USUAL rewards
+  # totalFeesEarned: BigInt! # Any proportional fee share
+  lastActivity: BigInt! # Timestamp of last deposit/withdraw
+  pool: Pool! # Current pool
+  txCount: BigInt! # Total txns interacting with protocol
+  positionSnapshots: [PositionSnapshot!]! @derivedFrom(field: "user")
+}
+
+type PositionSnapshot @entity(immutable: true) {
+  id: Bytes! # `${user}-${blockNumber}-${logIndex}`
+  user: User! # User reference
+  pool: Pool! # Curve Pool reference
+  # rewardsAccumulated: BigInt! # Total $USUAL accrued
+  # feesEarned: BigInt! # Trading fees earned via Curve
+  timestamp: BigInt! # Timestamp of position creation
+  lpTokenBalance: BigDecimal! # Amount of LP tokens held
+  shareOfPool: BigDecimal! # % of LP tokens held
+}
+
+type Pool @entity(immutable: false) {
+  id: Bytes! # Curve Pool address
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  name: String! # e.g., "USD0-USD0++"
+  usd0Balance: BigInt! # USD0 in pool
+  usd0PlusBalance: BigInt! # USD0++ in pool
+  totalSupply: BigDecimal! # Total LP tokens in pool
+  volume: BigInt! # total lifetime swap volume
+
+  # Total lifetime liquidity movement
+  usd0LiquidityAdded: BigDecimal!
+  usd0LiquidityRemoved: BigDecimal!
+  usd0PlusLiquidityAdded: BigDecimal!
+  usd0PlusLiquidityRemoved: BigDecimal!
+
+  users: [User!]! @derivedFrom(field: "pool") # All users providing liquidity
+}
+
+# perhaps pool should have a list of these transactions?
+# to track the change in usd0 / usd0Plus over time?
+type PoolTransaction @entity(immutable: true) {
+  id: Bytes! # `${txHash}-${logIndex}`
+  timestamp: BigInt!
+  user: User!
+  pool: Pool!
+  type: String! # Deposit | Withdraw | Swap
+  isSellingUsd0: Boolean # Whether the user is selling USD0 | if null it is a deposit/withdraw
+  amountUSD0: BigInt
+  amountUSD0Plus: BigInt
+  gasUsed: BigInt
+}
+
+# Event Entities
+
 type Transfer @entity(immutable: true) {
   id: Bytes!
   sender: Bytes! # address
@@ -45,7 +104,7 @@ type TokenExchangeUnderlying @entity(immutable: true) {
 type AddLiquidity @entity(immutable: true) {
   id: Bytes!
   provider: Bytes! # address
-  token_amounts: [BigInt!]! # uint256[]
+  token_amounts: [BigInt!]! # uint256[usd0, usd0Plus]
   fees: [BigInt!]! # uint256[]
   invariant: BigInt! # uint256
   token_supply: BigInt! # uint256
@@ -57,7 +116,7 @@ type AddLiquidity @entity(immutable: true) {
 type RemoveLiquidity @entity(immutable: true) {
   id: Bytes!
   provider: Bytes! # address
-  token_amounts: [BigInt!]! # uint256[]
+  token_amounts: [BigInt!]! # uint256[usd0, usd0Plus]
   fees: [BigInt!]! # uint256[]
   token_supply: BigInt! # uint256
   blockNumber: BigInt!
@@ -68,7 +127,7 @@ type RemoveLiquidity @entity(immutable: true) {
 type RemoveLiquidityOne @entity(immutable: true) {
   id: Bytes!
   provider: Bytes! # address
-  token_id: BigInt! # int128
+  token_id: BigInt! # int128 - 0 for usd0, 1 for usd0Plus
   token_amount: BigInt! # uint256
   coin_amount: BigInt! # uint256
   token_supply: BigInt! # uint256
@@ -80,7 +139,7 @@ type RemoveLiquidityOne @entity(immutable: true) {
 type RemoveLiquidityImbalance @entity(immutable: true) {
   id: Bytes!
   provider: Bytes! # address
-  token_amounts: [BigInt!]! # uint256[]
+  token_amounts: [BigInt!]! # uint256[usd0, usd0Plus]
   fees: [BigInt!]! # uint256[]
   invariant: BigInt! # uint256
   token_supply: BigInt! # uint256

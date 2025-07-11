@@ -16,6 +16,10 @@ dataSources:
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
+        - User
+        - PositionSnapshot
+        - Pool
+        - PoolTransaction
         - Transfer
         - Approval
         - TokenExchange
