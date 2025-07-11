@@ -17,9 +17,9 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - User
-        - PositionSnapshot
+        - UserSnapshot
         - Pool
-        - PoolTransaction
+        - PoolSnapshot
         - Transfer
         - TokenExchange
         - TokenExchangeUnderlying

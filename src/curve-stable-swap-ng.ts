@@ -1,17 +1,18 @@
-import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts";
+import {
+  Address,
+  BigDecimal,
+  BigInt,
+  ethereum,
+  log,
+} from "@graphprotocol/graph-ts";
 import {
   Transfer as TransferEvent,
-  Approval as ApprovalEvent,
   TokenExchange as TokenExchangeEvent,
   TokenExchangeUnderlying as TokenExchangeUnderlyingEvent,
   AddLiquidity as AddLiquidityEvent,
   RemoveLiquidity as RemoveLiquidityEvent,
   RemoveLiquidityOne as RemoveLiquidityOneEvent,
   RemoveLiquidityImbalance as RemoveLiquidityImbalanceEvent,
-  RampA as RampAEvent,
-  StopRampA as StopRampAEvent,
-  ApplyNewFee as ApplyNewFeeEvent,
-  SetNewMATime as SetNewMATimeEvent,
 } from "../generated/CurveStableSwapNG/CurveStableSwapNG";
 import {
   Transfer,
@@ -24,12 +25,24 @@ import {
 } from "../generated/schema";
 import {
   getOrInitPool,
-  getOrInitPoolTransaction,
-  getOrInitSwapTransaction,
+  getOrInitPoolSnapshot,
   getOrInitUser,
+  getOrInitUserSnapshot,
 } from "./mapping-initialisers";
 
 const USD0_ID = BigInt.fromI32(0);
+
+function calculateShareOfPool(
+  lpTokenBalance: BigDecimal,
+  totalSupply: BigDecimal
+): BigDecimal {
+  if (totalSupply.gt(BigDecimal.fromString("0"))) {
+    return lpTokenBalance.div(totalSupply);
+  } else {
+    log.critical("Pool total supply is 0", []);
+  }
+  return BigDecimal.fromString("0");
+}
 
 export function handleTransfer(event: TransferEvent): void {
   let entity = new Transfer(
@@ -52,6 +65,9 @@ export function handleTransfer(event: TransferEvent): void {
       event.params.value.toBigDecimal()
     );
     user.save();
+
+    let userSnapshot = getOrInitUserSnapshot(user, event);
+    userSnapshot.save();
   }
 
   // burn sender's LP tokens
@@ -61,6 +77,45 @@ export function handleTransfer(event: TransferEvent): void {
       event.params.value.toBigDecimal()
     );
     user.save();
+
+    let userSnapshot = getOrInitUserSnapshot(user, event);
+    userSnapshot.save();
+  }
+
+  if (
+    event.params.sender.notEqual(Address.zero()) &&
+    event.params.receiver.notEqual(Address.zero())
+  ) {
+    let sender = getOrInitUser(event.params.sender, event.address, event.block);
+    let receiver = getOrInitUser(
+      event.params.receiver,
+      event.address,
+      event.block
+    );
+    let pool = getOrInitPool(event.address, event.block);
+
+    sender.lpTokenBalance = sender.lpTokenBalance.minus(
+      event.params.value.toBigDecimal()
+    );
+    sender.shareOfPool = calculateShareOfPool(
+      sender.lpTokenBalance,
+      pool.totalSupply
+    );
+    receiver.lpTokenBalance = receiver.lpTokenBalance.plus(
+      event.params.value.toBigDecimal()
+    );
+    receiver.shareOfPool = calculateShareOfPool(
+      receiver.lpTokenBalance,
+      pool.totalSupply
+    );
+    sender.save();
+    receiver.save();
+
+    let senderSnapshot = getOrInitUserSnapshot(sender, event);
+    senderSnapshot.save();
+
+    let receiverSnapshot = getOrInitUserSnapshot(receiver, event);
+    receiverSnapshot.save();
   }
 
   // TODO: this is the transfer of the LP tokens
@@ -68,13 +123,12 @@ export function handleTransfer(event: TransferEvent): void {
   // versus each LP token probably?
 }
 
-
 function processTokenExchange(
   event: ethereum.Event,
   buyer: Address,
   sold_id: BigInt,
   tokens_sold: BigInt,
-  bought_id: BigInt,
+  _bought_id: BigInt,
   tokens_bought: BigInt
 ): void {
   const isSellingUsd0 = sold_id.equals(USD0_ID);
@@ -92,25 +146,18 @@ function processTokenExchange(
     pool.usd0Balance = pool.usd0Balance.minus(tokens_sold);
     pool.usd0PlusBalance = pool.usd0PlusBalance.plus(tokens_bought);
   }
-
   pool.save();
+
+  let poolSnapshot = getOrInitPoolSnapshot(pool, event);
+  poolSnapshot.save();
 
   let user = getOrInitUser(buyer, event.address, event.block);
   user.lastActivity = event.block.timestamp;
   user.txCount = user.txCount.plus(BigInt.fromI32(1));
-
   user.save();
 
-  let poolTransaction = getOrInitSwapTransaction(
-    user,
-    pool,
-    event,
-    isSellingUsd0 ? tokens_sold : tokens_bought,
-    isSellingUsd0 ? tokens_bought : tokens_sold,
-    isSellingUsd0
-  );
-
-  poolTransaction.save();
+  let userSnapshot = getOrInitUserSnapshot(user, event);
+  userSnapshot.save();
 }
 
 export function handleTokenExchange(event: TokenExchangeEvent): void {
@@ -197,25 +244,66 @@ export function handleAddLiquidity(event: AddLiquidityEvent): void {
   );
   pool.save();
 
+  let poolSnapshot = getOrInitPoolSnapshot(pool, event);
+  poolSnapshot.save();
+
   let user = getOrInitUser(event.params.provider, event.address, event.block);
   user.lastActivity = event.block.timestamp;
   user.txCount = user.txCount.plus(BigInt.fromI32(1));
+
   // user.lpTokenBalance is updated in the handleTransfer function
   // Transfer event is emitted prior to AddLiquidity
-  user.shareOfPool = user.lpTokenBalance.div(pool.totalSupply);
+  // so we need to calculate the share of pool after the transfer event
+  // because pool.totalSupply is only updated here
+  user.shareOfPool = calculateShareOfPool(
+    user.lpTokenBalance,
+    pool.totalSupply
+  );
 
   user.save();
 
-  let poolTransaction = getOrInitPoolTransaction(
-    user,
-    pool,
-    event,
-    "AddLiquidity",
-    event.params.token_amounts[0],
-    event.params.token_amounts[1]
+  let userSnapshot = getOrInitUserSnapshot(user, event);
+  userSnapshot.save();
+}
+
+function processRemoveLiquidity(
+  event: ethereum.Event,
+  provider: Address,
+  token_amounts: BigInt[],
+  token_supply: BigInt
+): void {
+  let pool = getOrInitPool(event.address, event.block);
+  pool.usd0Balance = pool.usd0Balance.minus(token_amounts[0]);
+  pool.usd0PlusBalance = pool.usd0PlusBalance.minus(token_amounts[1]);
+  pool.totalSupply = token_supply.toBigDecimal();
+  pool.usd0LiquidityRemoved = pool.usd0LiquidityRemoved.plus(
+    token_amounts[0].toBigDecimal()
+  );
+  pool.usd0PlusLiquidityRemoved = pool.usd0PlusLiquidityRemoved.plus(
+    token_amounts[1].toBigDecimal()
+  );
+  pool.save();
+
+  let poolSnapshot = getOrInitPoolSnapshot(pool, event);
+  poolSnapshot.save();
+
+  let user = getOrInitUser(provider, event.address, event.block);
+  user.lastActivity = event.block.timestamp;
+  user.txCount = user.txCount.plus(BigInt.fromI32(1));
+
+  // user.lpTokenBalance is updated in the handleTransfer function
+  // Transfer event is emitted prior to RemoveLiquidity
+  // so we need to calculate the share of pool after the transfer event
+  // because pool.totalSupply is only updated here
+  user.shareOfPool = calculateShareOfPool(
+    user.lpTokenBalance,
+    pool.totalSupply
   );
 
-  poolTransaction.save();
+  user.save();
+
+  let userSnapshot = getOrInitUserSnapshot(user, event);
+  userSnapshot.save();
 }
 
 export function handleRemoveLiquidity(event: RemoveLiquidityEvent): void {
@@ -233,15 +321,12 @@ export function handleRemoveLiquidity(event: RemoveLiquidityEvent): void {
 
   entity.save();
 
-  // TODO: update User entity
-  // txCount
-  // totalUSD0 maybe
-  // totalUSD0Plus maybe
-  // lastActivity
-  // TODO: update Pool entity
-  // totalLiquidityUSD
-  // TODO: update Position entity
-  // TODO: create Transaction entity
+  processRemoveLiquidity(
+    event,
+    event.params.provider,
+    event.params.token_amounts,
+    event.params.token_supply
+  );
 }
 
 export function handleRemoveLiquidityOne(event: RemoveLiquidityOneEvent): void {
@@ -260,15 +345,14 @@ export function handleRemoveLiquidityOne(event: RemoveLiquidityOneEvent): void {
 
   entity.save();
 
-  // TODO: update User entity
-  // txCount
-  // totalUSD0 maybe
-  // totalUSD0Plus maybe
-  // lastActivity
-  // TODO: update Pool entity
-  // totalLiquidityUSD
-  // TODO: update Position entity
-  // TODO: create Transaction entity
+  processRemoveLiquidity(
+    event,
+    event.params.provider,
+    entity.token_id.equals(USD0_ID)
+      ? [entity.token_amount, BigInt.zero()]
+      : [BigInt.zero(), entity.token_amount],
+    event.params.token_supply
+  );
 }
 
 export function handleRemoveLiquidityImbalance(
@@ -289,13 +373,10 @@ export function handleRemoveLiquidityImbalance(
 
   entity.save();
 
-  // TODO: update User entity
-  // txCount
-  // totalUSD0 maybe
-  // totalUSD0Plus maybe
-  // lastActivity
-  // TODO: update Pool entity
-  // totalLiquidityUSD
-  // TODO: update Position entity
-  // TODO: create Transaction entity
+  processRemoveLiquidity(
+    event,
+    event.params.provider,
+    event.params.token_amounts,
+    event.params.token_supply
+  );
 }

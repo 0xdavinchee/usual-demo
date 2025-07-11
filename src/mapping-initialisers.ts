@@ -7,8 +7,8 @@ import {
 } from "@graphprotocol/graph-ts";
 import {
   Pool,
-  PositionSnapshot,
-  PoolTransaction,
+  UserSnapshot,
+  PoolSnapshot,
   User,
 } from "../generated/schema";
 import { createLogID } from "./utils";
@@ -34,26 +34,24 @@ export function getOrInitUser(
   return user as User;
 }
 
-export function getOrInitPositionSnapshot(
+export function getOrInitUserSnapshot(
   user: User,
-  pool: Pool,
   event: ethereum.Event
-): PositionSnapshot {
+): UserSnapshot {
   // Create ID using the createLogID utility function
   let snapshotId = createLogID(user.id, event);
-  let snapshot = PositionSnapshot.load(snapshotId);
+  let snapshot = UserSnapshot.load(snapshotId);
 
   if (snapshot == null) {
-    snapshot = new PositionSnapshot(snapshotId);
+    snapshot = new UserSnapshot(snapshotId);
     snapshot.user = user.id;
-    snapshot.pool = pool.id;
     snapshot.timestamp = event.block.timestamp;
     snapshot.lpTokenBalance = user.lpTokenBalance;
     snapshot.shareOfPool = user.shareOfPool;
     snapshot.save();
   }
 
-  return snapshot as PositionSnapshot;
+  return snapshot as UserSnapshot;
 }
 
 export function getOrInitPool(
@@ -73,63 +71,30 @@ export function getOrInitPool(
     pool.usd0PlusLiquidityAdded = BigDecimal.fromString("0");
     pool.usd0PlusLiquidityRemoved = BigDecimal.fromString("0");
     pool.createdAt = block.timestamp;
+    pool.updatedAt = block.timestamp;
     pool.save();
   }
 
   return pool as Pool;
 }
 
-export function getOrInitPoolTransaction(
-  user: User,
+export function getOrInitPoolSnapshot(
   pool: Pool,
-  event: ethereum.Event,
-  type: string,
-  amountUSD0: BigInt,
-  amountUSD0Plus: BigInt
-): PoolTransaction {
+  event: ethereum.Event
+): PoolSnapshot {
   // Create transaction ID using the createLogID utility function
-  let poolTransactionId = event.transaction.hash.concatI32(event.logIndex.toI32());
-  let poolTransaction = PoolTransaction.load(poolTransactionId);
-  
-  if (poolTransaction == null) {
-    poolTransaction = new PoolTransaction(poolTransactionId);
-    poolTransaction.user = user.id;
-    poolTransaction.pool = pool.id;
-    poolTransaction.type = type;
-    poolTransaction.amountUSD0 = amountUSD0;
-    poolTransaction.amountUSD0Plus = amountUSD0Plus;
-    poolTransaction.timestamp = event.block.timestamp;
-    poolTransaction.gasUsed = BigInt.fromI32(0);
-    poolTransaction.save();
-  }
+  let poolSnapshotId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  let poolSnapshot = new PoolSnapshot(poolSnapshotId);
+  poolSnapshot.timestamp = event.block.timestamp;
+  poolSnapshot.pool = pool.id;
+  poolSnapshot.usd0Balance = pool.usd0Balance;
+  poolSnapshot.usd0PlusBalance = pool.usd0PlusBalance;
+  poolSnapshot.totalSupply = pool.totalSupply;
+  poolSnapshot.usd0LiquidityAdded = pool.usd0LiquidityAdded;
+  poolSnapshot.usd0LiquidityRemoved = pool.usd0LiquidityRemoved;
+  poolSnapshot.usd0PlusLiquidityAdded = pool.usd0PlusLiquidityAdded;
+  poolSnapshot.usd0PlusLiquidityRemoved = pool.usd0PlusLiquidityRemoved;
+  poolSnapshot.save();
 
-  return poolTransaction as PoolTransaction;
-}
-
-export function getOrInitSwapTransaction(
-  user: User,
-  pool: Pool,
-  event: ethereum.Event,
-  amountUSD0: BigInt,
-  amountUSD0Plus: BigInt,
-  isSellingUsd0: boolean
-): PoolTransaction {
-  // Create transaction ID using the createLogID utility function
-  let poolTransactionId = event.transaction.hash.concatI32(event.logIndex.toI32());
-  let poolTransaction = PoolTransaction.load(poolTransactionId);
-  
-  if (poolTransaction == null) {
-    poolTransaction = new PoolTransaction(poolTransactionId);
-    poolTransaction.user = user.id;
-    poolTransaction.pool = pool.id;
-    poolTransaction.type = "Swap";
-    poolTransaction.isSellingUsd0 = isSellingUsd0;
-    poolTransaction.amountUSD0 = amountUSD0;
-    poolTransaction.amountUSD0Plus = amountUSD0Plus;
-    poolTransaction.timestamp = event.block.timestamp;
-    poolTransaction.gasUsed = BigInt.fromI32(0);
-    poolTransaction.save();
-  }
-
-  return poolTransaction as PoolTransaction;
+  return poolSnapshot as PoolSnapshot;
 }

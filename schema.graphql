@@ -1,20 +1,19 @@
 # Higher Order Entities
 type User @entity(immutable: false) {
   id: Bytes! # Wallet address
-  lpTokenBalance: BigDecimal! # Amount of LP tokens held
-  shareOfPool: BigDecimal! # % of LP tokens held
+  lpTokenBalance: BigDecimal! # Amount of LP tokens held currently
+  shareOfPool: BigDecimal! # % of LP tokens - NOTE: this is the share of the pool at the time of the last activity
   # totalUSUALRewards: BigInt! # Lifetime $USUAL rewards
   # totalFeesEarned: BigInt! # Any proportional fee share
   lastActivity: BigInt! # Timestamp of last deposit/withdraw
   pool: Pool! # Current pool
   txCount: BigInt! # Total txns interacting with protocol
-  positionSnapshots: [PositionSnapshot!]! @derivedFrom(field: "user")
+  userSnapshots: [UserSnapshot!]! @derivedFrom(field: "user")
 }
 
-type PositionSnapshot @entity(immutable: true) {
+type UserSnapshot @entity(immutable: true) {
   id: Bytes! # `${user}-${blockNumber}-${logIndex}`
   user: User! # User reference
-  pool: Pool! # Curve Pool reference
   # rewardsAccumulated: BigInt! # Total $USUAL accrued
   # feesEarned: BigInt! # Trading fees earned via Curve
   timestamp: BigInt! # Timestamp of position creation
@@ -39,20 +38,22 @@ type Pool @entity(immutable: false) {
   usd0PlusLiquidityRemoved: BigDecimal!
 
   users: [User!]! @derivedFrom(field: "pool") # All users providing liquidity
+  snapshots: [PoolSnapshot!]! @derivedFrom(field: "pool")
 }
 
 # perhaps pool should have a list of these transactions?
 # to track the change in usd0 / usd0Plus over time?
-type PoolTransaction @entity(immutable: true) {
+type PoolSnapshot @entity(immutable: true) {
   id: Bytes! # `${txHash}-${logIndex}`
   timestamp: BigInt!
-  user: User!
   pool: Pool!
-  type: String! # Deposit | Withdraw | Swap
-  isSellingUsd0: Boolean # Whether the user is selling USD0 | if null it is a deposit/withdraw
-  amountUSD0: BigInt
-  amountUSD0Plus: BigInt
-  gasUsed: BigInt
+  usd0Balance: BigInt!
+  usd0PlusBalance: BigInt!
+  totalSupply: BigDecimal!
+  usd0LiquidityAdded: BigDecimal!
+  usd0PlusLiquidityAdded: BigDecimal!
+  usd0LiquidityRemoved: BigDecimal!
+  usd0PlusLiquidityRemoved: BigDecimal!
 }
 
 # Event Entities
