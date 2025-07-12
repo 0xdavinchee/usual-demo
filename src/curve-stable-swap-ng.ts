@@ -137,14 +137,14 @@ function processTokenExchange(
   pool.updatedAt = event.block.timestamp;
   pool.volume = pool.volume.plus(tokens_sold).plus(tokens_bought);
 
-  // USD0 in USD0++ out
+  // When someone sells USD0, pool receives USD0 and gives USD0++
   if (isSellingUsd0) {
-    pool.usd0Balance = pool.usd0Balance.plus(tokens_sold);
-    pool.usd0PlusBalance = pool.usd0PlusBalance.minus(tokens_bought);
+    pool.usd0Balance = pool.usd0Balance.plus(tokens_sold);  // Pool receives USD0
+    pool.usd0PlusBalance = pool.usd0PlusBalance.minus(tokens_bought);  // Pool gives USD0++
   } else {
-    // USD0++ in USD0 out
-    pool.usd0Balance = pool.usd0Balance.minus(tokens_sold);
-    pool.usd0PlusBalance = pool.usd0PlusBalance.plus(tokens_bought);
+    // When someone sells USD0++, pool receives USD0++ and gives USD0
+    pool.usd0Balance = pool.usd0Balance.minus(tokens_bought);  // Pool gives USD0
+    pool.usd0PlusBalance = pool.usd0PlusBalance.plus(tokens_sold);  // Pool receives USD0++
   }
   pool.save();
 
